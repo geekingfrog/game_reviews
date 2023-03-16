@@ -74,7 +74,7 @@
             {% match game.tags %}
             {% when Some with (tags) %}
             <ul class="tags">
-            {% for tag in tags|split_tags2 %}
+            {% for tag in tags|split_tags %}
               <li>{{tag}}</li>
             {% endfor %}
             </ul>

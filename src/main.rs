@@ -1,5 +1,5 @@
-use sqlx::Connection;
 use askama::Template;
+use sqlx::Connection;
 
 #[derive(sqlx::FromRow, Debug)]
 struct Game {
@@ -30,42 +30,26 @@ struct Category {
 
 struct Section {
     category: Category,
-    games: Vec<Game>
+    games: Vec<Game>,
 }
 
 #[derive(Template)]
-#[template(path="reviews.html")]
+#[template(path = "reviews.html")]
 struct ReviewTemplate {
-    sections: Vec<Section>
+    sections: Vec<Section>,
 }
 
 mod filters {
-    use std::fmt::Write;
-
     /// for the heart count
     pub fn repeat<T: std::fmt::Display>(s: T, count: &&i64) -> askama::Result<String> {
         let count = (**count).try_into().unwrap();
         Ok(s.to_string().repeat(count))
     }
 
-    pub fn split_tags2<'a>(raw: &'a &String) -> askama::Result<Vec<&'a str>> {
+    pub fn split_tags<'a>(raw: &'a &String) -> askama::Result<Vec<&'a str>> {
         Ok(raw.split("/").into_iter().collect())
     }
-
-    pub fn split_tags(tags: &&String) -> askama::Result<String> {
-        if tags.is_empty() {
-            return Ok("".to_string())
-        }
-
-        let mut wrt = String::from(r#"<ul class="tags">"#);
-        for tag in tags.split("/") {
-            write!(&mut wrt, "<li>{}</li>", tag)?;
-        }
-        write!(&mut wrt, "</ul>")?;
-        Ok(wrt)
-    }
 }
-
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -80,7 +64,6 @@ async fn main() -> anyhow::Result<()> {
     let mut sections = Vec::with_capacity(categories.len());
 
     for cat in categories {
-
         let games = sqlx::query_as::<_, Game>(
             "SELECT game.*, GROUP_CONCAT(tag.value, '/') as tags
             FROM game
@@ -94,13 +77,13 @@ async fn main() -> anyhow::Result<()> {
         .fetch_all(&mut conn)
         .await?;
 
-        sections.push(Section{
+        sections.push(Section {
             category: cat,
-            games
+            games,
         });
     }
 
-    let reviews = ReviewTemplate{sections};
+    let reviews = ReviewTemplate { sections };
     reviews.write_into(&mut wrt)?;
 
     Ok(())
