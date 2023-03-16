@@ -1,10 +1,9 @@
-use futures::StreamExt;
-use sqlx::{Connection, Executor};
-use std::fmt::Write;
-use tokio::io::AsyncWriteExt;
+use sqlx::Connection;
+use askama::Template;
 
 #[derive(sqlx::FromRow, Debug)]
 struct Game {
+    #[allow(dead_code)]
     id: i64,
     title: String,
     link: Option<String>,
@@ -14,101 +13,95 @@ struct Game {
     description: String,
     pros: Option<String>,
     cons: Option<String>,
+    #[allow(dead_code)]
     category_id: i64,
     heart_count: Option<i64>,
-}
-
-impl Game {
-    /// generate some markdown intented to be printed on github
-    fn to_markdown(&self) -> anyhow::Result<String> {
-        let mut result = String::new();
-        write!(&mut result, "*")?;
-
-        match &self.link {
-            Some(link) => write!(&mut result, "[{}]({})", self.title, link)?,
-            None => write!(&mut result, "**{}**", self.title)?,
-        };
-
-        match &self.year_played {
-            Some(y) => write!(&mut result, " - joué en {y} ")?,
-            None => (),
-        };
-
-        let heart_count: usize = self.heart_count.unwrap_or_default().try_into().expect(
-            &format!(
-                "invalid heart_count for game id {}: {:?}",
-                self.id, self.heart_count
-            ),
-        );
-        if heart_count > 0 {
-            write!(&mut result, "{}", ":heart:".repeat(heart_count))?;
-        }
-
-        if let Some(r) = self.rating {
-            write!(&mut result, "**{r}/20**")?;
-        };
-
-        write!(&mut result, "\n*Sorti en {}*\n", self.year_released)?;
-        // TODO the genres/tags here
-
-        write!(&mut result, ":information_source: {}\n", self.description)?;
-
-        if let Some(pros) = &self.pros {
-            write!(&mut result, ":heavy_check_mark: {pros}\n")?;
-        };
-
-        if let Some(cons) = &self.cons {
-            write!(&mut result, ":x: {cons}\n")?;
-        };
-
-        Ok(result)
-    }
+    tags: Option<String>,
 }
 
 #[derive(sqlx::FromRow, Debug)]
 struct Category {
     id: i64,
     title: String,
+    #[allow(dead_code)]
     sort_order: i64,
     description: String,
 }
 
+struct Section {
+    category: Category,
+    games: Vec<Game>
+}
+
+#[derive(Template)]
+#[template(path="reviews.html")]
+struct ReviewTemplate {
+    sections: Vec<Section>
+}
+
+mod filters {
+    use std::fmt::Write;
+
+    /// for the heart count
+    pub fn repeat<T: std::fmt::Display>(s: T, count: &&i64) -> askama::Result<String> {
+        let count = (**count).try_into().unwrap();
+        Ok(s.to_string().repeat(count))
+    }
+
+    pub fn split_tags2<'a>(raw: &'a &String) -> askama::Result<Vec<&'a str>> {
+        Ok(raw.split("/").into_iter().collect())
+    }
+
+    pub fn split_tags(tags: &&String) -> askama::Result<String> {
+        if tags.is_empty() {
+            return Ok("".to_string())
+        }
+
+        let mut wrt = String::from(r#"<ul class="tags">"#);
+        for tag in tags.split("/") {
+            write!(&mut wrt, "<li>{}</li>", tag)?;
+        }
+        write!(&mut wrt, "</ul>")?;
+        Ok(wrt)
+    }
+}
+
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    println!("Hello, world!");
-
     let mut conn = sqlx::SqliteConnection::connect("game_reviews.sqlite3").await?;
-    let mut wrt = tokio::io::BufWriter::new(tokio::io::stdout());
+    // let mut wrt = tokio::io::BufWriter::new(tokio::io::stdout());
+    let mut wrt = std::io::BufWriter::new(std::io::stdout());
 
     let categories = sqlx::query_as::<_, Category>("SELECT * from category ORDER BY sort_order")
         .fetch_all(&mut conn)
         .await?;
 
+    let mut sections = Vec::with_capacity(categories.len());
+
     for cat in categories {
-        wrt.write(format!("# {}\n{}\n\n", cat.title, cat.description).as_bytes())
-            .await?;
 
         let games = sqlx::query_as::<_, Game>(
-            "SELECT * FROM game WHERE category_id = ? ORDER BY rating DESC, title LIMIT 8",
+            "SELECT game.*, GROUP_CONCAT(tag.value, '/') as tags
+            FROM game
+            LEFT OUTER JOIN game_tag ON game_tag.game_id = game.id
+            LEFT OUTER JOIN tag ON game_tag.tag_id = tag.id
+            WHERE game.category_id = ?
+            GROUP BY game.id
+            ORDER BY game.rating DESC, game.title",
         )
         .bind(cat.id)
         .fetch_all(&mut conn)
         .await?;
 
-        for game in games {
-            wrt.write(game.to_markdown()?.as_bytes()).await?;
-            wrt.write("\n\n".as_bytes()).await?;
-        }
+        sections.push(Section{
+            category: cat,
+            games
+        });
     }
 
-    // let mut games = sqlx::query_as::<_, Game>("SELECT * from game LIMIT ?")
-    //     .bind(9999)
-    //     .fetch(&mut conn);
+    let reviews = ReviewTemplate{sections};
+    reviews.write_into(&mut wrt)?;
 
-    // while let Some(game) = games.next().await.transpose()? {
-    //     println!("{} - {}", game.id, game.title);
-    // }
-
-    wrt.flush().await?;
     Ok(())
 }

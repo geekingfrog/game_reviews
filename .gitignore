@@ -1,6 +1,4 @@
-artart*
-
-
-# Added by cargo
-
 /target
+
+*.sql
+/reviews.html

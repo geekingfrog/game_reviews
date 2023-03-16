@@ -1,0 +1,107 @@
+{# vim: set ft=jinja #}
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta content="text/html/charset=utf-8" http-equiv="Content-Type">
+<style>{% include "styles.css" %}</style>
+    <link rel="stylesheet" type="text/css" href="./templates/styles.css">
+  </head>
+
+  <body>
+    <h1>Intro</h1>
+    <p>
+      A friend did a <a href="https://web.blot.tech/">cool list</a> so I did something similar.
+      This is a mostly complete list of games I've played over the years. The year played can
+      sometimes be a ballpark, sometimes because I don't have the data (not everything is in steam)
+      and sometimes because I played some games for years, or on and off over many years, so it's
+      not very relevant.
+    </p>
+    <p>
+      That list is pretty biased of course, I rather prefer immersive and intricate games, and don't
+      really like some other genres. Also, as of early 2023 I still have a very old computer, which effectively
+      prevent me to play modern AAA games.
+    </p>
+
+    {% for section in sections %}
+    <h1>{{ section.category.title }}</h1>
+    <p>{{section.category.description}}</p>
+
+    <p>
+      <ul class="game-reviews">
+
+      {% for game in section.games %}
+      <li class="game-review">
+          <div class="summary">
+            <p class="title">
+          {% match game.link %}
+            {% when Some with (link) %}
+          <a href="{{link}}">{{game.title}}</a>
+            {% when None %}
+          {{game.title}}
+          {% endmatch %}
+            </p>
+
+
+            <p class="rating">
+          {% match game.rating %}
+          {% when Some with (rating) %}
+          {{rating}}/20
+          {% when None %}
+          {% endmatch %}
+
+          {% match game.heart_count %}
+          {% when Some with (count) %}
+              <span class="heart">{{"❤️"|repeat(count)}}</span>
+          {% when None %}
+          {% endmatch %}
+              
+            </p>
+
+            <p class="dates">
+              released in {{game.year_released}}
+            {% match game.year_played %}
+              {% when Some with (y) %}
+              - played in {{y}}
+            {% when None %}
+            {% endmatch %}
+              
+            </p>
+
+          </div>
+
+          <div class="details">
+            {% match game.tags %}
+            {% when Some with (tags) %}
+            <ul class="tags">
+            {% for tag in tags|split_tags2 %}
+              <li>{{tag}}</li>
+            {% endfor %}
+            </ul>
+            {% when None %}
+            {% endmatch %}
+
+            <p class="description">{{game.description}}</p>
+
+            {% match game.pros %}
+            {% when Some with (pros) %}
+            <p class="pros">{{pros}}</p>
+            {% when None %}
+            {% endmatch %}
+
+            {% match game.cons %}
+            {% when Some with (cons) %}
+            <p class="cons">{{cons}}</p>
+            {% when None %}
+            {% endmatch %}
+
+
+          </div>
+
+        </li>
+      {% endfor %}
+      </ul>
+    </p>
+    {% endfor %}
+  </body>
+</html>

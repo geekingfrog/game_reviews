@@ -1,0 +1,87 @@
+body {max-width: 70rem; margin: 0 auto;}
+
+:root {
+  --hl-color: #FCFCFC;
+  /* --hl-bg-color: #8F43EE; */
+  --hl-bg-color: #0288d1;
+}
+
+* {
+  box-sizing: content-box;
+}
+
+h1 {
+  color: var(--hl-bg-color);
+}
+
+ul {
+  padding: 0;
+}
+
+.game-reviews {
+  list-style-type: none;
+}
+
+.game-review {
+  display: flex;
+  margin: 2rem 1rem;
+  border: 1px solid #C0C0C0;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: .1rem .1rem .1rem .1rem rgba(0,0,0,.2);
+  transition: box-shadow .3s;
+}
+
+.game-review:hover {
+  box-shadow: .3rem .3rem .2rem .2rem rgba(0,0,0,.2);
+}
+
+.summary {
+  flex: 1 0 0;
+  color: var(--hl-color);
+  background-color: var(--hl-bg-color);
+  padding: 1rem;
+}
+
+.summary > * {
+  font-size: 1.8rem;
+  font-weight: bold;
+}
+
+.title a, .title a:visited {
+  color: var(--hl-color);
+}
+
+.heart {
+  letter-spacing: .4rem;
+  text-align: center;
+}
+
+.dates {
+  font-weight: normal;
+  font-size: .9rem;
+}
+
+.details {
+  flex: 3 0 0;
+  padding: 1rem;
+}
+
+.tags {
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tags li {
+  display: inline-block;
+  margin: 0 .5rem;
+  color: var(--hl-color);
+  background-color: var(--hl-bg-color);
+  padding: .5rem;
+  border-radius: 1rem / 50%;
+}
+
+.game-review .description::before { content: "ℹ️ "; }
+.game-review .pros::before { content: "✔️ "; }
+.game-review .cons::before { content: "❌ "; }
