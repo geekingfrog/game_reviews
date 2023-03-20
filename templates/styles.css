@@ -1,4 +1,8 @@
-body {max-width: 70rem; margin: 0 auto;}
+body {
+  max-width: 70rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
 
 :root {
   --hl-color: #FCFCFC;
@@ -12,14 +16,38 @@ body {max-width: 70rem; margin: 0 auto;}
 
 h1 {
   color: var(--hl-bg-color);
+  /* muck around the padding top so that the anchor link leave the heading */
+  /* visible, just below the sticky header */
+  padding-top: 2.5rem;
 }
 
 ul {
+  list-style-type: none;
   padding: 0;
 }
 
-.game-reviews {
-  list-style-type: none;
+.menu {
+  position: sticky;
+  top: -1px;
+  padding: .6rem .8rem;
+  margin: 0;
+  background-color: rgba(255,255,255,0.8);
+}
+
+.menu li {
+  display: inline-block;
+  margin: 0 .5rem;
+  border-radius: .2rem;
+  transition: background-color .3s;
+}
+
+.menu li a {
+  display: inline-block;
+  padding: .5rem .5rem;
+}
+
+.menu li:hover {
+  background-color: rgba(0,0,0,0.1);
 }
 
 .game-review {

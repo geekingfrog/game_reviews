@@ -54,7 +54,6 @@ mod filters {
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let mut conn = sqlx::SqliteConnection::connect("game_reviews.sqlite3").await?;
-    // let mut wrt = tokio::io::BufWriter::new(tokio::io::stdout());
     let mut wrt = std::io::BufWriter::new(std::io::stdout());
 
     let categories = sqlx::query_as::<_, Category>("SELECT * from category ORDER BY sort_order")

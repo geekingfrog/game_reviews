@@ -4,8 +4,8 @@
 <html>
   <head>
     <meta content="text/html/charset=utf-8" http-equiv="Content-Type">
-<style>{% include "styles.css" %}</style>
-    <link rel="stylesheet" type="text/css" href="./templates/styles.css">
+    <style>{% include "styles.css" %}</style>
+    {#<link rel="stylesheet" type="text/css" href="./templates/styles.css">#}
   </head>
 
   <body>
@@ -23,8 +23,16 @@
       prevent me to play modern AAA games.
     </p>
 
+    <p>Some title have ❤️ symbols. These are my favorites despite their potential flaws.</p>
+
+    <ul class="menu">
+      {% for section in sections %}
+      <li><a href="#{{section.category.title|lower}}">{{section.category.title}}</a></li>
+      {% endfor %}
+    </ul>
+
     {% for section in sections %}
-    <h1>{{ section.category.title }}</h1>
+    <h1 id="{{section.category.title|lower}}">{{ section.category.title }}</h1>
     <p>{{section.category.description}}</p>
 
     <p>
