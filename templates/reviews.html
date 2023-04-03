@@ -42,12 +42,7 @@
       <li class="game-review">
           <div class="summary">
             <p class="title">
-          {% match game.link %}
-            {% when Some with (link) %}
-          <a href="{{link}}">{{game.title}}</a>
-            {% when None %}
-          {{game.title}}
-          {% endmatch %}
+              TODO
             </p>
 
 
@@ -67,18 +62,14 @@
             </p>
 
             <p class="dates">
-              released in {{game.year_released}}
-            {% match game.year_played %}
-              {% when Some with (y) %}
-              - played in {{y}}
-            {% when None %}
-            {% endmatch %}
-              
+              released in TODO {#{{game.year_released}}#}
             </p>
 
           </div>
 
           <div class="details">
+
+            {#
             {% match game.tags %}
             {% when Some with (tags) %}
             <ul class="tags">
@@ -88,6 +79,7 @@
             </ul>
             {% when None %}
             {% endmatch %}
+            #}
 
             <p class="description">{{game.description}}</p>
 

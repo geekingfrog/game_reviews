@@ -11,18 +11,19 @@ use governor::{
 use hyper::{client::HttpConnector, Body, Client, Method, Request, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sqlx::Connection;
+use sqlx::{Connection, SqliteConnection, Transaction};
 use time::OffsetDateTime;
 
 trait HasCacheId {
     fn id(&self) -> u32;
 }
 
+// can't be arsed to type all these bounds all the time
 trait Cacheable: Send + Sync + Serialize + DeserializeOwned + HasCacheId {}
 impl<T> Cacheable for T where T: Send + Sync + Serialize + DeserializeOwned + HasCacheId {}
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct IGDBGame {
+pub struct Game {
     pub id: u32,
     pub name: String,
     pub slug: String,
@@ -32,14 +33,15 @@ pub struct IGDBGame {
     pub genres: Vec<u32>,
     pub summary: Option<String>,
     pub url: String,
+    #[serde(rename = "cover")]
+    pub cover_id: u32,
 }
 
-impl HasCacheId for IGDBGame {
+impl HasCacheId for Game {
     fn id(&self) -> u32 {
         self.id
     }
 }
-
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Genre {
@@ -53,8 +55,20 @@ impl HasCacheId for Genre {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+pub struct Cover {
+    pub id: u32,
+    pub url: String,
+}
+
+impl HasCacheId for Cover {
+    fn id(&self) -> u32 {
+        self.id
+    }
+}
+
 #[async_trait]
-pub trait IGDBCache {
+pub trait IGDBCache: Sync {
     #[allow(unused_variables)]
     async fn set<T>(&self, id: u32, endpoint: &str, val: T) -> anyhow::Result<()>
     where
@@ -108,6 +122,27 @@ impl SqliteCache {
         let conn = sqlx::SqliteConnection::connect(&self.path).await?;
         Ok(conn)
     }
+
+    async fn _set<'a, T>(
+        &self,
+        tx: &mut Transaction<'a, sqlx::Sqlite>,
+        id: u32,
+        endpoint: &str,
+        val: T,
+    ) -> anyhow::Result<()>
+    where
+        T: Send + Serialize,
+    {
+        let val = serde_json::to_string(&val)?;
+        sqlx::query("INSERT INTO igdb_cache (igdb_id, endpoint, value) VALUES (?,?,?)")
+            .bind(id)
+            .bind(endpoint)
+            .bind(val)
+            .execute(tx)
+            .await?;
+        log::debug!("set cache for ({endpoint}, {id})");
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -117,17 +152,9 @@ impl IGDBCache for SqliteCache {
         T: Send + Serialize,
     {
         let mut conn = self.get_conn().await?;
-        let val = serde_json::to_string(&val)?;
-        sqlx::query(
-            "INSERT INTO igdb_cache (igdb_id, endpoint, value)
-        VALUES (?,?,?)",
-        )
-        .bind(id)
-        .bind(endpoint)
-        .bind(val)
-        .execute(&mut conn)
-        .await?;
-        log::debug!("set cache for ({endpoint}, {id})");
+        let mut tx = conn.begin().await?;
+        self._set(&mut tx, id, endpoint, val).await?;
+        tx.commit().await?;
         Ok(())
     }
 
@@ -135,9 +162,14 @@ impl IGDBCache for SqliteCache {
     where
         T: Send + Serialize,
     {
+        log::debug!("set {} objects for endpoint {}", vals.len(), endpoint);
+        let mut conn = self.get_conn().await?;
+        let mut tx = conn.begin().await?;
+
         for (id, val) in vals {
-            self.set(id, endpoint, val).await?;
+            self._set(&mut tx, id, endpoint, val).await?;
         }
+        tx.commit().await?;
         Ok(())
     }
 
@@ -188,7 +220,7 @@ pub struct IGDB<Cache> {
 
 impl<Cache> IGDB<Cache>
 where
-    Cache: IGDBCache + Sync,
+    Cache: IGDBCache,
 {
     pub async fn new(cache: Cache) -> anyhow::Result<Self> {
         let client_id = std::env::var("IGDB_TWITCH_CLIENT_ID")
@@ -205,7 +237,7 @@ where
 
         let access_token = match std::env::var("TWITCH_ACCESS_TOKEN") {
             Ok(tok) => {
-                eprintln!("Found an access token in environment");
+                log::info!("Found an access token in environment");
                 tok
             }
             Err(_) => {
@@ -259,7 +291,6 @@ where
             .body(Body::from(body.clone()))?;
         self.limiter.until_ready().await;
         let mut resp = self.client.request(req).await?;
-        log::info!("got status code: {}", resp.status());
 
         let resp_body = hyper::body::to_bytes(resp.body_mut()).await?;
         let strbody = std::str::from_utf8(&resp_body).context("invalid utf-8 received")?;
@@ -278,7 +309,12 @@ where
         }
     }
 
-    async fn get_ids<T>(&self, endpoint: &str, ids: &[u32]) -> anyhow::Result<Vec<T>>
+    async fn get_objects<T>(
+        &self,
+        endpoint: &str,
+        fields: &str,
+        ids: &[u32],
+    ) -> anyhow::Result<Vec<T>>
     where
         T: Cacheable,
     {
@@ -294,11 +330,16 @@ where
         let mut fetched_items = if ids_str.is_empty() {
             Vec::new()
         } else {
-            let body = format!("fields *; where id=({});", ids_str);
+            // maximum limit is 500 and I don't have anything bigger than that, so
+            // avoid doing any pagination at all
+            let body = format!("limit 500; fields {fields}; where id=({});", ids_str);
             let result: Vec<T> = self.req_igdb(endpoint, body).await?;
             self.cache
                 .set_many(endpoint, result.iter().map(|g| (g.id(), g)).collect())
                 .await?;
+            if result.len() != ids.len() {
+                log::error!("PAGINATION!!!! {} vs {}", result.len(), ids.len());
+            }
             result
         };
 
@@ -310,30 +351,19 @@ where
         Ok(fetched_items)
     }
 
-    async fn req_games(&self, body: String) -> anyhow::Result<Vec<IGDBGame>> {
-        let result: Vec<IGDBGame> = self.req_igdb("games", body).await?;
-        self.cache
-            .set_many("games", result.iter().map(|g| (g.id.into(), g)).collect())
-            .await?;
-        Ok(result)
-    }
-
-    // used temporarily while populating the existing table with igdb ids
-    #[allow(dead_code)]
-    async fn search_game(&self, title: &str) -> anyhow::Result<Vec<IGDBGame>> {
-        let body = format!(
-            r#"search "{}"; fields id,name,first_release_date,release_dates,slug,genres,url;"#,
-            title
-        );
-
-        Ok(self.req_games(body).await?)
-    }
-
-    pub async fn get_games(&self, ids: &[u32]) -> anyhow::Result<Vec<IGDBGame>> {
-        self.get_ids("games", ids).await
+    pub async fn get_games(&self, ids: &[u32]) -> anyhow::Result<Vec<Game>> {
+        self.get_objects("games", "*", ids).await
     }
 
     pub async fn get_genres(&self, ids: &[u32]) -> anyhow::Result<Vec<Genre>> {
-        self.get_ids("genres", ids).await
+        self.get_objects("genres", "*", ids).await
+    }
+
+    pub async fn get_covers(&self, cover_ids: &[u32]) -> anyhow::Result<Vec<Cover>> {
+        let mut covers: Vec<Cover> = self.get_objects("covers", "*", cover_ids).await?;
+        covers.iter_mut().for_each(|cover| {
+            cover.url = format!("https:{}", cover.url.replace("t_thumb", "t_cover_med"));
+        });
+        Ok(covers)
     }
 }
