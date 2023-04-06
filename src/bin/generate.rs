@@ -172,64 +172,12 @@ async fn main() -> anyhow::Result<()> {
     let cache = igdb::SqliteCache::new(sqlite_path.to_string());
     let igdb = igdb::IGDB::new(cache).await?;
     let sections = get_sections(sqlite_path, &igdb).await?;
+    let total_count: usize = sections.iter().map(|s| s.reviews.len()).sum();
 
     let mut wrt = std::io::BufWriter::new(std::io::stdout());
     let reviews = ReviewTemplate { sections };
     reviews.write_into(&mut wrt)?;
-
-    // let mut conn = sqlx::SqliteConnection::connect(sqlite_path).await?;
-    // let stuff = sqlx::query_as::<_, (String,)>(
-    //     "select value from igdb_cache where igdb_id = ? and endpoint = ?"
-    // )
-    //     .bind(99471)
-    //     .bind("covers")
-    //     .fetch_one(&mut conn).await?;
-
-    // println!("{stuff:#?}");
-    // println!("{:#?}", igdb.get_covers(&[99471]).await?);
-
-    // let games = sqlx::query_as::<_, Game>(
-    //     "SELECT game.*, GROUP_CONCAT(tag.value, '/') as tags
-    //     FROM game
-    //     LEFT OUTER JOIN game_tag ON game_tag.game_id = game.id
-    //     LEFT OUTER JOIN tag ON game_tag.tag_id = tag.id
-    //     GROUP BY game.id
-    //     ORDER BY game.rating DESC, game.title",
-    // )
-    // .fetch_all(&mut conn)
-    // .await?;
-
-    // let mut conn = sqlx::SqliteConnection::connect("game_reviews.sqlite3").await?;
-    // let mut wrt = std::io::BufWriter::new(std::io::stdout());
-
-    // let categories = sqlx::query_as::<_, Category>("SELECT * from category ORDER BY sort_order")
-    //     .fetch_all(&mut conn)
-    //     .await?;
-
-    // let mut sections = Vec::with_capacity(categories.len());
-
-    // for cat in categories {
-    //     let games = sqlx::query_as::<_, Game>(
-    //         "SELECT game.*, GROUP_CONCAT(tag.value, '/') as tags
-    //         FROM game
-    //         LEFT OUTER JOIN game_tag ON game_tag.game_id = game.id
-    //         LEFT OUTER JOIN tag ON game_tag.tag_id = tag.id
-    //         WHERE game.category_id = ?
-    //         GROUP BY game.id
-    //         ORDER BY game.rating DESC, game.title",
-    //     )
-    //     .bind(cat.id)
-    //     .fetch_all(&mut conn)
-    //     .await?;
-
-    //     sections.push(Section {
-    //         category: cat,
-    //         games,
-    //     });
-    // }
-
-    // let reviews = ReviewTemplate { sections };
-    // reviews.write_into(&mut wrt)?;
+    log::info!("Generated reviews for {} games", total_count);
 
     Ok(())
 }
