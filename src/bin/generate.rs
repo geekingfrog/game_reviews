@@ -1,22 +1,9 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use askama::Template;
-use sqlx::{Executor, Connection};
+use sqlx::Connection;
 
 use game_reviews::igdb::{self, IGDBCache};
-
-#[derive(Debug)]
-struct Game {
-    title: String,
-    link: String,
-    date_released: Option<String>,
-    rating: Option<i64>,
-    description: String,
-    pros: Option<String>,
-    cons: Option<String>,
-    heart_count: Option<i64>,
-    genres: Vec<String>,
-}
 
 #[derive(sqlx::FromRow, Debug)]
 struct Category {
@@ -45,8 +32,23 @@ struct GameReview {
 
 struct Section {
     category: Category,
-    games: Vec<Game>,
+    reviews: Vec<Review>,
 }
+
+#[derive(Debug)]
+struct Review {
+    title: String,
+    link: String,
+    cover_url: String,
+    date_released: Option<String>,
+    rating: Option<i64>,
+    description: String,
+    pros: Option<String>,
+    cons: Option<String>,
+    heart_count: Option<i64>,
+    genres: Vec<String>,
+}
+
 
 #[derive(Template)]
 #[template(path = "reviews.html")]
@@ -74,7 +76,7 @@ async fn get_sections<Cache: IGDBCache>(
     let mut sections = Vec::with_capacity(categories.len());
 
     for cat in categories {
-        let games = sqlx::query_as::<_, GameReview>(
+        let game_reviews = sqlx::query_as::<_, GameReview>(
             "SELECT *
             FROM game_review
             WHERE category_id = ?
@@ -87,7 +89,7 @@ async fn get_sections<Cache: IGDBCache>(
 
         // log::debug!("games: {games:#?}");
 
-        let game_ids = games.iter().map(|g| g.igdb_id).collect::<Vec<_>>();
+        let game_ids = game_reviews.iter().map(|g| g.igdb_id).collect::<Vec<_>>();
         let igdb_games = igdb.get_games(&game_ids[..]).await?;
 
         let genre_ids = igdb_games.iter().fold(BTreeSet::new(), |mut genres, g| {
@@ -105,13 +107,60 @@ async fn get_sections<Cache: IGDBCache>(
         let covers = igdb.get_covers(&cover_ids[..]).await?;
         // log::debug!("covers: {:#?}", covers);
 
+        let games = game_reviews
+            .iter()
+            .map(|gr| make_review(&genres[..], &covers[..], &igdb_games[..], gr))
+            .collect();
         sections.push(Section {
             category: cat,
-            games: todo!(),
+            reviews: games,
         });
     }
 
-    todo!()
+    Ok(sections)
+}
+
+fn make_review(
+    genres: &[igdb::Genre],
+    covers: &[igdb::Cover],
+    games: &[igdb::Game],
+    gr: &GameReview,
+) -> Review {
+    let game = games
+        .iter()
+        .find(|g| g.id == gr.igdb_id)
+        .expect(&format!("can't find igdb game for {gr:?}"));
+
+    let cover = covers
+        .iter()
+        .find(|c| c.id == game.cover_id)
+        .expect(&format!("can't find cover for igdb game {game:?}"));
+
+    let genres = genres
+        .iter()
+        .filter_map(|genre| {
+            if game.genres.contains(&genre.id) {
+                Some(genre.name.to_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let fmt = time::macros::format_description!("[month]/[year]");
+
+    Review {
+        title: game.name.clone(),
+        link: game.url.clone(),
+        cover_url: cover.url.clone(),
+        date_released: game.first_release_date.map(|d| d.format(fmt).unwrap()),
+        rating: gr.rating,
+        description: gr.description.clone(),
+        pros: gr.pros.clone(),
+        cons: gr.cons.clone(),
+        heart_count: gr.heart_count,
+        genres,
+    }
 }
 
 #[tokio::main]
@@ -122,7 +171,11 @@ async fn main() -> anyhow::Result<()> {
     let sqlite_path = "game_reviews.sqlite3";
     let cache = igdb::SqliteCache::new(sqlite_path.to_string());
     let igdb = igdb::IGDB::new(cache).await?;
-    get_sections(sqlite_path, &igdb).await?;
+    let sections = get_sections(sqlite_path, &igdb).await?;
+
+    let mut wrt = std::io::BufWriter::new(std::io::stdout());
+    let reviews = ReviewTemplate { sections };
+    reviews.write_into(&mut wrt)?;
 
     // let mut conn = sqlx::SqliteConnection::connect(sqlite_path).await?;
     // let stuff = sqlx::query_as::<_, (String,)>(
@@ -134,7 +187,6 @@ async fn main() -> anyhow::Result<()> {
 
     // println!("{stuff:#?}");
     // println!("{:#?}", igdb.get_covers(&[99471]).await?);
-
 
     // let games = sqlx::query_as::<_, Game>(
     //     "SELECT game.*, GROUP_CONCAT(tag.value, '/') as tags

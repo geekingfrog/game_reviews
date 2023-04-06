@@ -11,7 +11,7 @@ use governor::{
 use hyper::{client::HttpConnector, Body, Client, Method, Request, Uri};
 use hyper_tls::HttpsConnector;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use sqlx::{Connection, SqliteConnection, Transaction};
+use sqlx::{Connection, Transaction};
 use time::OffsetDateTime;
 
 trait HasCacheId {

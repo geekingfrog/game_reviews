@@ -14,102 +14,47 @@ body {
   box-sizing: content-box;
 }
 
-h1 {
-  color: var(--hl-bg-color);
-  /* muck around the padding top so that the anchor link leave the heading */
-  /* visible, just below the sticky header */
-  padding-top: 2.5rem;
-}
-
 ul {
-  list-style-type: none;
   padding: 0;
-}
-
-.menu {
-  position: sticky;
-  top: -1px;
-  padding: .6rem .8rem;
-  margin: 0;
-  background-color: rgba(255,255,255,0.8);
-}
-
-.menu li {
-  display: inline-block;
-  margin: 0 .5rem;
-  border-radius: .2rem;
-  transition: background-color .3s;
-}
-
-.menu li a {
-  display: inline-block;
-  padding: .5rem .5rem;
-}
-
-.menu li:hover {
-  background-color: rgba(0,0,0,0.1);
 }
 
 .game-review {
   display: flex;
-  margin: 2rem 1rem;
-  border: 1px solid #C0C0C0;
-  border-radius: 1rem;
-  overflow: hidden;
-  box-shadow: .1rem .1rem .1rem .1rem rgba(0,0,0,.2);
-  transition: box-shadow .3s;
+  border-top: 1px solid rgba(0,0,0,.3);
+  margin-top: 1rem;
+  padding-top: .5rem;
 }
 
-.game-review:hover {
-  box-shadow: .3rem .3rem .2rem .2rem rgba(0,0,0,.2);
+.review-body p {
+  margin: .2rem 0;
 }
 
-.summary {
-  flex: 1 0 0;
-  color: var(--hl-color);
-  background-color: var(--hl-bg-color);
-  padding: 1rem;
+.review-cover, .review-body {
+  padding: 0 .5rem;
 }
 
-.summary > * {
-  font-size: 1.8rem;
+.review-body .title {
   font-weight: bold;
+  font-size: 1.3rem;
 }
 
-.title a, .title a:visited {
-  color: var(--hl-color);
+.review-body .info {
+  font-weight: italic;
 }
+
+.review-body .genres li {
+  display: inline-block;
+  padding: .2rem .5rem 0 0;
+}
+
+.review-body .genres li:hover {
+  cursor: pointer;
+}
+.review-body .description::before { content: "ℹ️ "; }
+.review-body .pros::before { content: "✔️ "; }
+.review-body .cons::before { content: "❌ "; }
 
 .heart {
   letter-spacing: .4rem;
   text-align: center;
 }
-
-.dates {
-  font-weight: normal;
-  font-size: .9rem;
-}
-
-.details {
-  flex: 3 0 0;
-  padding: 1rem;
-}
-
-.tags {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
-}
-
-.tags li {
-  display: inline-block;
-  margin: 0 .5rem;
-  color: var(--hl-color);
-  background-color: var(--hl-bg-color);
-  padding: .5rem;
-  border-radius: 1rem / 50%;
-}
-
-.game-review .description::before { content: "ℹ️ "; }
-.game-review .pros::before { content: "✔️ "; }
-.game-review .cons::before { content: "❌ "; }

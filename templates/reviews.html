@@ -4,8 +4,8 @@
 <html>
   <head>
     <meta content="text/html/charset=utf-8" http-equiv="Content-Type">
-    <style>{% include "styles.css" %}</style>
-    {#<link rel="stylesheet" type="text/css" href="./templates/styles.css">#}
+    {#<style>{% include "styles.css" %}</style>#}
+    <link rel="stylesheet" type="text/css" href="./templates/styles.css">
   </head>
 
   <body>
@@ -36,72 +36,57 @@
     <p>{{section.category.description}}</p>
 
     <p>
-      <ul class="game-reviews">
+      <ul>
 
-      {% for game in section.games %}
+      {% for review in section.reviews %}
       <li class="game-review">
-          <div class="summary">
-            <p class="title">
-              TODO
-            </p>
-
-
-            <p class="rating">
-          {% match game.rating %}
-          {% when Some with (rating) %}
-          {{rating}}/20
-          {% when None %}
-          {% endmatch %}
-
-          {% match game.heart_count %}
-          {% when Some with (count) %}
-              <span class="heart">{{"❤️"|repeat(count)}}</span>
-          {% when None %}
-          {% endmatch %}
-              
-            </p>
-
-            <p class="dates">
-              released in TODO {#{{game.year_released}}#}
-            </p>
-
+          <div class="review-cover">
+            <a href="{{review.link}}">
+              <img src="{{review.cover_url}}" alt="{{review.title}} cover image">
+            </a>
           </div>
+          <div class="review-body">
+            <p class="title"><a href="{{review.link}}">{{review.title}}</a>
+              {% match review.date_released %}
+              {% when Some with (date) %}
+              &mdash; Released in {{date}}
+              {% when None %}
+              {% endmatch %}
 
-          <div class="details">
+              {% match review.rating %}
+              {% when Some with (rating) %}
+              &mdash; {{rating}}/20
+              {% when None %}
+              {% endmatch %}
 
-            {#
-            {% match game.tags %}
-            {% when Some with (tags) %}
-            <ul class="tags">
-            {% for tag in tags|split_tags %}
-              <li>{{tag}}</li>
-            {% endfor %}
-            </ul>
-            {% when None %}
-            {% endmatch %}
-            #}
+              {% match review.heart_count %}
+              {% when Some with (count) %}
+              <span class="heart">{{"❤️"|repeat(count)}}</span>
+              {% when None %}
+              {% endmatch %}
+            </p>
 
-            <p class="description">{{game.description}}</p>
-
-            {% match game.pros %}
+            <p class="genres"> {{review.genres|join(", ") }}</p>
+            <p class="description">{{review.description}}</p>
+            {% match review.pros %}
             {% when Some with (pros) %}
             <p class="pros">{{pros}}</p>
             {% when None %}
             {% endmatch %}
 
-            {% match game.cons %}
+            {% match review.cons %}
             {% when Some with (cons) %}
             <p class="cons">{{cons}}</p>
             {% when None %}
             {% endmatch %}
 
-
           </div>
 
-        </li>
+      </li>
       {% endfor %}
       </ul>
     </p>
     {% endfor %}
+
   </body>
 </html>
