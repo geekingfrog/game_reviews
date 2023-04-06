@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::io::Write;
 
 use askama::Template;
 use sqlx::Connection;
@@ -48,7 +49,6 @@ struct Review {
     heart_count: Option<i64>,
     genres: Vec<String>,
 }
-
 
 #[derive(Template)]
 #[template(path = "reviews.html")]
@@ -174,9 +174,10 @@ async fn main() -> anyhow::Result<()> {
     let sections = get_sections(sqlite_path, &igdb).await?;
     let total_count: usize = sections.iter().map(|s| s.reviews.len()).sum();
 
-    let mut wrt = std::io::BufWriter::new(std::io::stdout());
     let reviews = ReviewTemplate { sections };
-    reviews.write_into(&mut wrt)?;
+    let rendered = reviews.render()?;
+    let minified = minify_html::minify(rendered.as_bytes(), &minify_html::Cfg::spec_compliant());
+    print!("{}", String::from_utf8(minified)?);
     log::info!("Generated reviews for {} games", total_count);
 
     Ok(())
