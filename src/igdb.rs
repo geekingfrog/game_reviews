@@ -262,7 +262,6 @@ where
                 let strbody = std::str::from_utf8(&body).context("invalid utf-8 received")?;
                 let twitch_resp: TwitchToken = serde_json::from_str(strbody)
                     .with_context(|| format!("invalid response from twitch: {:?}", strbody))?;
-                println!("access token: {}", twitch_resp.access_token);
                 twitch_resp.access_token
             }
         };
@@ -338,7 +337,7 @@ where
                 .set_many(endpoint, result.iter().map(|g| (g.id(), g)).collect())
                 .await?;
             if result.len() != ids.len() {
-                log::error!("PAGINATION!!!! {} vs {}", result.len(), ids.len());
+                log::warn!("PAGINATION!!!! {} vs {}", result.len(), ids.len());
             }
             result
         };
