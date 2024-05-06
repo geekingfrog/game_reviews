@@ -25,6 +25,14 @@
 
     <p>Some title have ❤️ symbols. These are my favorites despite their potential flaws.</p>
 
+    <h2>Last additions</h2>
+    <ol>
+    {% for recent in recents %}
+    <li><a href="#review-{{recent.id}}">{{recent.title}}</a></li>
+    {% endfor %}
+    </ol>
+
+    <h2>Sections</h2>
     <ul class="menu">
       {% for section in sections %}
       <li><a href="#{{section.category.title|lower}}">{{section.category.title}}</a></li>
@@ -39,7 +47,7 @@
       <ul>
 
       {% for review in section.reviews %}
-      <li class="game-review">
+      <li id="review-{{review.id}}" class="game-review">
           <div class="review-cover">
             <a href="{{review.link}}">
               <img src="{{review.cover_url}}" alt="{{review.title}} cover image">

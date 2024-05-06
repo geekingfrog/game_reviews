@@ -38,6 +38,7 @@ struct Section {
 
 #[derive(Debug)]
 struct Review {
+    id: i64,
     title: String,
     link: String,
     cover_url: String,
@@ -50,9 +51,16 @@ struct Review {
     genres: Vec<String>,
 }
 
+#[derive(Debug)]
+struct RecentReview {
+    id: i64,
+    title: String,
+}
+
 #[derive(Template)]
 #[template(path = "reviews.html")]
 struct ReviewTemplate {
+    recents: Vec<RecentReview>,
     sections: Vec<Section>,
 }
 
@@ -120,6 +128,22 @@ async fn get_sections<Cache: IGDBCache>(
     Ok(sections)
 }
 
+async fn get_recent_reviews(sqlite_path: &str) -> anyhow::Result<Vec<RecentReview>> {
+    let mut conn = sqlx::SqliteConnection::connect(sqlite_path).await?;
+    let recents =
+        sqlx::query_as::<_, GameReview>("SELECT * from game_review ORDER BY id desc LIMIT 5")
+            .fetch_all(&mut conn)
+            .await?
+            .into_iter()
+            .map(|g| RecentReview {
+                id: g.id,
+                title: g.title,
+            })
+            .collect();
+
+    Ok(recents)
+}
+
 fn make_review(
     genres: &[igdb::Genre],
     covers: &[igdb::Cover],
@@ -150,6 +174,7 @@ fn make_review(
     let fmt = time::macros::format_description!("[month]/[year]");
 
     Review {
+        id: gr.id,
         title: game.name.clone(),
         link: game.url.clone(),
         cover_url: cover.url.clone(),
@@ -172,9 +197,10 @@ async fn main() -> anyhow::Result<()> {
     let cache = igdb::SqliteCache::new(sqlite_path.to_string());
     let igdb = igdb::IGDB::new(cache).await?;
     let sections = get_sections(sqlite_path, &igdb).await?;
+    let recents = get_recent_reviews(sqlite_path).await?;
     let total_count: usize = sections.iter().map(|s| s.reviews.len()).sum();
 
-    let reviews = ReviewTemplate { sections };
+    let reviews = ReviewTemplate { recents, sections };
     let rendered = reviews.render()?;
     let minified = minify_html::minify(rendered.as_bytes(), &minify_html::Cfg::spec_compliant());
     print!("{}", String::from_utf8(minified)?);
