@@ -14,15 +14,15 @@ body {
   box-sizing: content-box;
 }
 
-ul {
-  padding: 0;
-}
-
 .game-review {
   display: flex;
   border-top: 1px solid rgba(0,0,0,.3);
   margin-top: 1rem;
   padding-top: .5rem;
+}
+
+.reviews {
+  padding: 0;
 }
 
 .review-body p {
